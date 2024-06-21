@@ -324,12 +324,14 @@ def main():
         page_icon="⚽",
     )
     title_html = """
+        <div style="margin-top: -60px;">
         <style>
             .title {
                 font-size: 24px;
             }
         </style>
         <h1 class="title">Tracking Data</h1>
+        </div>
     """
 
     # Render the HTML using st.write() with unsafe_allow_html=True
