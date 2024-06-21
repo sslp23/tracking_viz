@@ -49,9 +49,12 @@ def find_opt_pass(team = "home", PPCFhome='', PPCFaway=''):
     return optimal_pass
 
 def heatmap_opt_pass(df, hm, min=20, sec=38, team='home'):
-    cols = [a for a in df.columns.values if ('home' in a) and ('_x' in a or '_y' in a)]
-
     int_frame = df[(df.minute >= min) & (df.seconds >= sec)].head(1)
+    
+    sub_cols = int_frame.head(1).dropna(axis=1).columns
+    int_frame = int_frame[sub_cols]
+
+    cols = [a for a in int_frame.columns.values if ('home' in a) and ('_x' in a or '_y' in a)]
     #min = int(int_frame.periodGameClockTime.values[0]/60)
     df_b = int_frame[['ball_x', 'ball_y']].copy()
     
@@ -67,10 +70,12 @@ def heatmap_opt_pass(df, hm, min=20, sec=38, team='home'):
     pitch.scatter(mean_coords.x, mean_coords.y, alpha = 1, s = 500, color = "red", ax=ax)
     for i, row in mean_coords.reset_index().iterrows():
         pitch.annotate(row.jersey_num, xy=(row.x, row.y), c='black', va='center', ha='center', weight = "bold", size=16, ax=ax, zorder = 4)
-    
-    cols = [a for a in df.columns.values if ('away' in a) and ('_x' in a or '_y' in a)]
 
     int_frame = df[(df.minute >= min) & (df.seconds >= sec)].head(1)
+    sub_cols = int_frame.head(1).dropna(axis=1).columns
+    int_frame = int_frame[sub_cols]
+
+    cols = [a for a in int_frame.columns.values if ('away' in a) and ('_x' in a or '_y' in a)]
     df_b = int_frame[['ball_x', 'ball_y']].copy()
     
     positions = int_frame[cols].T
@@ -85,7 +90,7 @@ def heatmap_opt_pass(df, hm, min=20, sec=38, team='home'):
     for i, row in mean_coords_away.reset_index().iterrows():
         pitch.annotate(row.jersey_num, xy=(row.x, row.y), c='black', va='center', ha='center', weight = "bold", size=16, ax=ax, zorder = 4)
 
-    vel = [a for a in df.columns.values if ('home' in a) and ('_vx' in a or '_vy' in a)]
+    vel = [a for a in int_frame.columns.values if ('home' in a) and ('_vx' in a or '_vy' in a)]
     vels = int_frame[vel].T
     vels.columns = ['avg_pos']
     vels["jersey_num"] = vels.index.str.split("_").str[1]
@@ -98,7 +103,7 @@ def heatmap_opt_pass(df, hm, min=20, sec=38, team='home'):
         plt.quiver(row.x, row.y, row.vx, row.vy, color='r', units='xy', scale=1, width=0.5)
 
 
-    vel = [a for a in df.columns.values if ('away' in a) and ('_vx' in a or '_vy' in a)]
+    vel = [a for a in int_frame.columns.values if ('away' in a) and ('_vx' in a or '_vy' in a)]
     vels = int_frame[vel].T
     vels.columns = ['avg_pos']
     vels["jersey_num"] = vels.index.str.split("_").str[1]
@@ -135,7 +140,17 @@ def heatmap(df, jersey=9, team='home'):
     plt.show()
     return fig
 
-def tactical_pos(df, team='home'):
+def tactical_pos(df, team='home', sub="", line_height = False):
+    sub_cols = df.head(1).dropna(axis=1).columns
+    df = df[sub_cols]
+    if sub == "IP":
+        df = df[df.team_in_pos == team.capitalize()]
+        sub_name = sub
+    elif sub == "OP":
+        df = df[df.team_in_pos != team.capitalize()]
+        sub_name = sub
+    else:
+        pass
     cols = [a for a in df.columns.values if (team in a) and ('_x' in a or '_y' in a)]
     
     avg = df[cols].dropna().mean().to_frame("avg_pos")
@@ -148,17 +163,31 @@ def tactical_pos(df, team='home'):
     fig, ax = pitch.draw(figsize=(10, 7))
     pitch.scatter(mean_coords.x, mean_coords.y, alpha = 1, s = 500, color = "red", ax=ax)
     
+    if line_height:
+        if team == "home":
+            lower_x = mean_coords.x.sort_values().values[1]
+        else:
+            lower_x = mean_coords.x.sort_values().values[-2]
+
+        plt.axvline(lower_x, color= 'k', linestyle = '--', ymin=0.05, ymax=0.95)
+
     for i, row in mean_coords.reset_index().iterrows():
         pitch.annotate(row.jersey_num, xy=(row.x, row.y), c='black', va='center', ha='center', weight = "bold", size=16, ax=ax, zorder = 4)
         
-    plt.title(f"{team.capitalize()} team average position")
+    if sub == '':
+        plt.title(f"{team.capitalize()} team average position")
+    else:
+        plt.title(f"{team.capitalize()} team average position - {sub_name}")
     return fig
 
 def tactical_pos_frame_vel(df, min=20, sec=38, team='home'):
-    cols = [a for a in df.columns.values if (team in a) and ('_x' in a or '_y' in a)]
-    vel = [a for a in df.columns.values if (team in a) and ('_vx' in a or '_vy' in a)]
-
     int_frame = df[(df.minute >= min) & (df.seconds >= sec)].head(1)
+    sub_cols = int_frame.head(1).dropna(axis=1).columns
+    int_frame = int_frame[sub_cols]
+
+    cols = [a for a in int_frame.columns.values if (team in a) and ('_x' in a or '_y' in a)]
+    vel = [a for a in int_frame.columns.values if (team in a) and ('_vx' in a or '_vy' in a)]
+
     min = int(int_frame.periodGameClockTime.values[0]/60)
 
     df_b = int_frame[['ball_x', 'ball_y']].copy()
@@ -195,9 +224,12 @@ def tactical_pos_frame_vel(df, min=20, sec=38, team='home'):
 
 def make_voronoi(df, team_view = "home", min =20, sec=38):
     int_frame = df[(df.minute >= min) & (df.seconds >= sec)].head(1)
+    sub_cols = int_frame.head(1).dropna(axis=1).columns
+    int_frame = int_frame[sub_cols]
+
     df_b = int_frame[['ball_x', 'ball_y']].copy()
-    home_cols = [a for a in df.columns.values if ("home" in a) and ('_x' in a or '_y' in a)]
-    away_cols = [a for a in df.columns.values if ("away" in a) and ('_x' in a or '_y' in a)]
+    home_cols = [a for a in int_frame.columns.values if ("home" in a) and ('_x' in a or '_y' in a)]
+    away_cols = [a for a in int_frame.columns.values if ("away" in a) and ('_x' in a or '_y' in a)]
 
     ht_locs = int_frame[home_cols].T#.reset_index()
     ht_locs.columns = ["loc"]
@@ -245,9 +277,13 @@ def make_voronoi(df, team_view = "home", min =20, sec=38):
 
 def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFaway=''):
     field_dimen=(120, 80)
-    cols = [a for a in df.columns.values if ('home' in a) and ('_x' in a or '_y' in a)]
 
     int_frame = df[(df.minute >= min) & (df.seconds >= sec)].head(1)
+    sub_cols = int_frame.head(1).dropna(axis=1).columns
+    int_frame = int_frame[sub_cols]
+
+    cols = [a for a in int_frame.columns.values if ('home' in a) and ('_x' in a or '_y' in a)]
+
     #min = int(int_frame.periodGameClockTime.values[0]/60)
     df_b = int_frame[['ball_x', 'ball_y']].copy()
     
@@ -264,10 +300,16 @@ def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFawa
     for i, row in mean_coords.reset_index().iterrows():
         pitch.annotate(row.jersey_num, xy=(row.x, row.y), c='black', va='center', ha='center', weight = "bold", size=16, ax=ax, zorder = 4)
     
-    cols = [a for a in df.columns.values if ('away' in a) and ('_x' in a or '_y' in a)]
+    
 
     int_frame = df[(df.minute >= min) & (df.seconds >= sec)].head(1)
+    sub_cols = int_frame.head(1).dropna(axis=1).columns
+    int_frame = int_frame[sub_cols]
+
+    cols = [a for a in int_frame.columns.values if ('away' in a) and ('_x' in a or '_y' in a)]
+
     df_b = int_frame[['ball_x', 'ball_y']].copy()
+
     
     positions = int_frame[cols].T
     positions.columns = ['avg_pos']
@@ -281,7 +323,7 @@ def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFawa
     for i, row in mean_coords_away.reset_index().iterrows():
         pitch.annotate(row.jersey_num, xy=(row.x, row.y), c='black', va='center', ha='center', weight = "bold", size=16, ax=ax, zorder = 4)
 
-    vel = [a for a in df.columns.values if ('home' in a) and ('_vx' in a or '_vy' in a)]
+    vel = [a for a in int_frame.columns.values if ('home' in a) and ('_vx' in a or '_vy' in a)]
     vels = int_frame[vel].T
     vels.columns = ['avg_pos']
     vels["jersey_num"] = vels.index.str.split("_").str[1]
@@ -294,7 +336,7 @@ def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFawa
         plt.quiver(row.x, row.y, row.vx, row.vy, color='r', units='xy', scale=1, width=0.5)
 
 
-    vel = [a for a in df.columns.values if ('away' in a) and ('_vx' in a or '_vy' in a)]
+    vel = [a for a in int_frame.columns.values if ('away' in a) and ('_vx' in a or '_vy' in a)]
     vels = int_frame[vel].T
     vels.columns = ['avg_pos']
     vels["jersey_num"] = vels.index.str.split("_").str[1]
@@ -361,7 +403,18 @@ def main():
         team = st.selectbox('Select Team', ['Home', 'Away'], key='team_avg_pos')
         team = team.lower()
         
-        fig = tactical_pos(df, team=team)
+        sub_name = st.selectbox('Possession', ['All', 'In Possession', 'Out of Possession'], key='poss_sel')
+
+        def_line = st.checkbox('Show Defensive Line', value=False)
+
+        if sub_name == 'All':
+            sub = ''
+        elif sub_name == 'In Possession':
+            sub = 'IP'
+        else:
+            sub = 'OP'
+
+        fig = tactical_pos(df, team=team, sub=sub, line_height=def_line)
         
         st.pyplot(fig)
 
