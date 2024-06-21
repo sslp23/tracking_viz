@@ -2,11 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from mplsoccer import Pitch,  VerticalPitch
-pd.options.mode.chained_assignment = None  # default='warn'
 from scipy.ndimage import gaussian_filter
 import seaborn as sns
 from tqdm import tqdm
 import streamlit as st
+
+pd.options.mode.chained_assignment = None  # default='warn'
 from pitch_control import *
 
 
