@@ -319,7 +319,21 @@ def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFawa
     return fig
 
 def main():
-    st.title('Football Analysis Dashboard')
+    st.set_page_config(
+        page_title="Dashboard Tracking",
+        page_icon="⚽",
+    )
+    title_html = """
+        <style>
+            .title {
+                font-size: 24px;
+            }
+        </style>
+        <h1 class="title">Tracking Data</h1>
+    """
+
+    # Render the HTML using st.write() with unsafe_allow_html=True
+    st.write(title_html, unsafe_allow_html=True)
 
     #dataframe
     df = pd.read_csv("data/tracking_vel_compact.csv")
@@ -328,20 +342,20 @@ def main():
     tabs = st.tabs(['Player Heatmap', 'Team Average Position', 'Position at a Moment', 'Pitch Control'])
 
     with tabs[0]:
-        st.header('Player Heatmap')
-        home_players = list(set([a.split("_")[1] for a in df.columns if 'home_' in a]))
-        away_players = list(set([a.split("_")[1] for a in df.columns if 'away_' in a]))
+        #st.header('Player Heatmap')
+        home_players = list(set([int(a.split("_")[1]) for a in df.columns if 'home_' in a]))
+        away_players = list(set([int(a.split("_")[1]) for a in df.columns if 'away_' in a]))
 
         team = st.selectbox('Select Team', ['Home', 'Away'], key='team_heatmap')
         players = {'Home': home_players, 'Away': away_players}
         player_number = st.selectbox('Select Player Jersey Number', players[team])
 
         team = team.lower()
-        fig = heatmap(df, int(player_number), team=team)
+        fig = heatmap(df, (player_number), team=team)
         st.pyplot(fig)
 
     with tabs[1]:
-        st.header('Team Average Position')
+        #st.header('Team Average Position')
         team = st.selectbox('Select Team', ['Home', 'Away'], key='team_avg_pos')
         team = team.lower()
         
@@ -350,7 +364,7 @@ def main():
         st.pyplot(fig)
 
     with tabs[2]:
-        st.header('Position at a Moment')
+        #st.header('Position at a Moment')
         
         team = st.selectbox('Select Team', ['Home', 'Away'], key='team_frame')
         
@@ -375,7 +389,7 @@ def main():
         st.pyplot(fig)
 
     with tabs[3]:
-        st.header('Pitch Control')    
+        #st.header('Pitch Control')    
         team = st.selectbox('Select Team', ['Home', 'Away'], key='team_pcm')
         
         
