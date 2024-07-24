@@ -6,6 +6,8 @@ from scipy.ndimage import gaussian_filter
 import seaborn as sns
 from tqdm import tqdm
 import streamlit as st
+from streamlit_option_menu import option_menu
+from stats_table import *
 
 pd.options.mode.chained_assignment = None  # default='warn'
 from pitch_control import *
@@ -360,122 +362,146 @@ def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFawa
     plt.title(f"Pitch Control - Minute {min}:{sec}")
     return fig
 
+def title_html(string):
+    fs = "font-size: 20px;"
+    title = f"""
+        <div style="margin-top: -60px;">
+        <style>
+            .title {
+                fs
+            }
+        </style>
+        <h1 class="title">{string}</h1>
+        </div>
+    """
+    return title
+
 def main():
     st.set_page_config(
         page_title="Dashboard Tracking",
         page_icon="⚽",
+        layout="wide"
     )
-    title_html = """
-        <div style="margin-top: -60px;">
-        <style>
-            .title {
-                font-size: 24px;
-            }
-        </style>
-        <h1 class="title">Tracking Data</h1>
-        </div>
-    """
-
-    # Render the HTML using st.write() with unsafe_allow_html=True
-    st.write(title_html, unsafe_allow_html=True)
+    
 
     #dataframe
     df = pd.read_csv("data/tracking_vel_compact.csv")
-
+    df_ev = pd.read_csv("data/bayer_werder.csv")
+    with st.sidebar:
+        selected_page = option_menu(
+            "Match Analysis",
+            ["Team Analysis", "Player Analysis"],
+            icons=["kanban", "person"],
+            menu_icon="app-indicator",
+            default_index=0
+        )
     # Tabs
-    tabs = st.tabs(['Player Heatmap', 'Team Average Position', 'Position at a Moment', 'Pitch Control'])
+    if selected_page == "Team Analysis":
+        st.write(title_html("Team Analysis"), unsafe_allow_html=True)
+        tabs = st.tabs(['Match Summary', 'Position at a Moment', 'Pitch Control'])
 
-    with tabs[0]:
-        #st.header('Player Heatmap')
-        home_players = list(set([int(a.split("_")[1]) for a in df.columns if 'home_' in a]))
-        away_players = list(set([int(a.split("_")[1]) for a in df.columns if 'away_' in a]))
-
-        team = st.selectbox('Select Team', ['Home', 'Away'], key='team_heatmap')
-        players = {'Home': home_players, 'Away': away_players}
-        player_number = st.selectbox('Select Player Jersey Number', players[team])
-
-        team = team.lower()
-        fig = heatmap(df, (player_number), team=team)
-        st.pyplot(fig)
-
-    with tabs[1]:
-        #st.header('Team Average Position')
-        team = st.selectbox('Select Team', ['Home', 'Away'], key='team_avg_pos')
-        team = team.lower()
-        
-        sub_name = st.selectbox('Possession', ['All', 'In Possession', 'Out of Possession'], key='poss_sel')
-
-        def_line = st.checkbox('Show Defensive Line', value=False)
-
-        if sub_name == 'All':
-            sub = ''
-        elif sub_name == 'In Possession':
-            sub = 'IP'
-        else:
-            sub = 'OP'
-
-        fig = tactical_pos(df, team=team, sub=sub, line_height=def_line)
-        
-        st.pyplot(fig)
-
-    with tabs[2]:
-        #st.header('Position at a Moment')
-        
-        team = st.selectbox('Select Team', ['Home', 'Away'], key='team_frame')
-        
-        
-
-        min_minute = int(df['minute'].min())
-        max_minute = int(df['minute'].max())
-        min_second = int(df['seconds'].min())
-        max_second = int(df['seconds'].max())
-
-        col1, col2 = st.columns(2)
-        with col1:
-            minute = st.number_input('Minute', min_value=min_minute, max_value=max_minute,  value=20, key='minute_number_input')
-        with col2:
-            second = st.number_input('Second', min_value=min_second, max_value=max_second,  value=38, key='second_number_input')
-
-        team = team.lower()
-        fig = tactical_pos_frame_vel(df, min=minute, sec=second, team=team)
-        st.pyplot(fig)
-
-        fig = make_voronoi(df,min=minute, sec=second,  team_view=team)
-        st.pyplot(fig)
-
-    with tabs[3]:
-        #st.header('Pitch Control')    
-        team = st.selectbox('Select Team', ['Home', 'Away'], key='team_pcm')
-        
-        
-
-        min_minute = int(df['minute'].min())
-        max_minute = int(df['minute'].max())
-        min_second = int(df['seconds'].min())
-        max_second = int(df['seconds'].max())
-
-        col1, col2 = st.columns(2)
-        with col1:
-            minute = st.number_input('Minute', min_value=min_minute, max_value=max_minute,  value=20, key='minute_pcm_input')
-        with col2:
-            second = st.number_input('Second', min_value=min_second, max_value=max_second,  value=38, key='second_pcm_input')
-
-        team = team.lower()
-
-        #PPCFhome,PPCFaway = generate_pitch_control(df,min = minute, sec=second, field_dimen = (120.,80.,),n_grid_cells_x=60)
-        if st.button('Run Pitch Control Analysis', key='run_pitch_control'):
-            with st.spinner('Loading Pitch Control Model...'):
-                PPCFhome,PPCFaway = generate_pitch_control(df,min = minute, sec=second, field_dimen = (120.,80.,),n_grid_cells_x=60)
+        with tabs[0]:
+            #st.header('Team Average Position')
+            summ_table = build_table(df_ev)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader('Summary Stats')
+                st.dataframe(summ_table)
             
-            fig = tactical_pos_frame_pcm(df, PPCFhome=PPCFhome, PPCFaway=PPCFaway)
-            st.pyplot(fig)
+            with col2:
+                st.subheader('Team Avg Position')
+                team = st.selectbox('Select Team', ['Home', 'Away'], key='team_avg_pos')
+                team = team.lower()
+                
+                sub_name = st.selectbox('Possession', ['All', 'In Possession', 'Out of Possession'], key='poss_sel')
 
+                def_line = st.checkbox('Show Defensive Line', value=False, key='check1')
+                
+                if sub_name == 'All':
+                    sub = ''
+                elif sub_name == 'In Possession':
+                    sub = 'IP'
+                else:
+                    sub = 'OP'
+                fig = tactical_pos(df, team=team, sub=sub, line_height=def_line)
+            
+                st.pyplot(fig)            
 
-            opt_pass = find_opt_pass(team=team, PPCFhome=PPCFhome, PPCFaway=PPCFaway)
-            fig = heatmap_opt_pass(df, opt_pass)
-            st.pyplot(fig)
             
 
+        with tabs[1]:
+            #st.header('Position at a Moment')
+            
+            team = st.selectbox('Select Team', ['Home', 'Away'], key='team_frame')
+            
+            
+
+            min_minute = int(df['minute'].min())
+            max_minute = int(df['minute'].max())
+            min_second = int(df['seconds'].min())
+            max_second = int(df['seconds'].max())
+
+            col1, col2 = st.columns(2)
+            with col1:
+                minute = st.number_input('Minute', min_value=min_minute, max_value=max_minute,  value=20, key='minute_number_input')
+            with col2:
+                second = st.number_input('Second', min_value=min_second, max_value=max_second,  value=38, key='second_number_input')
+
+            team = team.lower()
+            fig = tactical_pos_frame_vel(df, min=minute, sec=second, team=team)
+            st.pyplot(fig)
+
+            fig = make_voronoi(df,min=minute, sec=second,  team_view=team)
+            st.pyplot(fig)
+
+        with tabs[2]:
+            #st.header('Pitch Control')    
+            team = st.selectbox('Select Team', ['Home', 'Away'], key='team_pcm')
+            
+            
+
+            min_minute = int(df['minute'].min())
+            max_minute = int(df['minute'].max())
+            min_second = int(df['seconds'].min())
+            max_second = int(df['seconds'].max())
+
+            col1, col2 = st.columns(2)
+            with col1:
+                minute = st.number_input('Minute', min_value=min_minute, max_value=max_minute,  value=20, key='minute_pcm_input')
+            with col2:
+                second = st.number_input('Second', min_value=min_second, max_value=max_second,  value=38, key='second_pcm_input')
+
+            team = team.lower()
+
+            #PPCFhome,PPCFaway = generate_pitch_control(df,min = minute, sec=second, field_dimen = (120.,80.,),n_grid_cells_x=60)
+            if st.button('Run Pitch Control Analysis', key='run_pitch_control'):
+                with st.spinner('Loading Pitch Control Model...'):
+                    PPCFhome,PPCFaway = generate_pitch_control(df,min = minute, sec=second, field_dimen = (120.,80.,),n_grid_cells_x=60)
+                
+                fig = tactical_pos_frame_pcm(df, PPCFhome=PPCFhome, PPCFaway=PPCFaway)
+                st.pyplot(fig)
+
+
+                opt_pass = find_opt_pass(team=team, PPCFhome=PPCFhome, PPCFaway=PPCFaway)
+                fig = heatmap_opt_pass(df, opt_pass)
+                st.pyplot(fig)
+                
+    elif selected_page == "Player Analysis":
+        st.write(title_html("Player Analysis"), unsafe_allow_html=True)
+        tabs = st.tabs(['Player Heatmap'])
+
+        with tabs[0]:
+            #st.header('Player Heatmap')
+            home_players = list(set([int(a.split("_")[1]) for a in df.columns if 'home_' in a]))
+            away_players = list(set([int(a.split("_")[1]) for a in df.columns if 'away_' in a]))
+
+            team = st.selectbox('Select Team', ['Home', 'Away'], key='team_heatmap')
+            players = {'Home': home_players, 'Away': away_players}
+            player_number = st.selectbox('Select Player Jersey Number', players[team])
+
+            team = team.lower()
+            fig = heatmap(df, (player_number), team=team)
+            st.pyplot(fig)
 
 
     
