@@ -393,7 +393,7 @@ def find_clusters(df, team, sel_cluster, cluster_name):
     pitch.arrows(df_cls.location_x, df_cls.location_y, df_cls.end_location_x, df_cls.end_location_y, color = "red", ax=ax['pitch'], width=1, label=sel_cluster)
 
     df_cls.timestamp = pd.to_datetime(df_cls.timestamp)
-    df_cls['max_timestamp'] = df_cls.timestamp + pd.Timedelta(8, unit='s')
+    df_cls['max_timestamp'] = df_cls.timestamp + pd.Timedelta(5, unit='s')
     df_cls['xg_gen'] = calc_xg(df_cls, df)
 
     total_xg = df_cls.xg_gen.sum()
