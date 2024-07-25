@@ -1,0 +1,11 @@
+cluster,desc
+0,"middle, in defensive half, not progressive, from left to right passes"
+1,"middle, in defensive half, not progressive, from right to left passes"
+2,"long, in defensive half, progressive, from defense to attack passes"
+3,"short, in right defensive half, progressive, from defense to the middle passes"
+4,"short, in attacking half, progressive, from middle to right attacking passes"
+5,"short, in left defensive half, progressive, from defense to the middle passes"
+6,"middle, in attacking half, not progressive, from right to left side passes"
+7,"short, in attacking half, progressive, from left middle to left attacking side passes"
+8,"middle, in attacking half, not progressive, from left to right side passes"
+9,"long, in all pitch, to right attacking side passes"

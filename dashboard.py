@@ -8,6 +8,7 @@ from tqdm import tqdm
 import streamlit as st
 from streamlit_option_menu import option_menu
 from stats_table import *
+import pickle
 
 pd.options.mode.chained_assignment = None  # default='warn'
 from pitch_control import *
@@ -362,6 +363,46 @@ def tactical_pos_frame_pcm(df, min=20, sec=38, team='home', PPCFhome='', PPCFawa
     plt.title(f"Pitch Control - Minute {min}:{sec}")
     return fig
 
+def find_clusters(df, team, sel_cluster, cluster_name):
+    with open("models/kmeans.pkl", 'rb') as file:
+        kmeans = pickle.load(file)
+
+    with open("models/scaler.pkl", 'rb') as file:
+        scaler = pickle.load(file)
+    
+    pass_df = df[(df.type == 'Pass') & (df.team == team)]
+    
+    pass_df.rename({
+        'x': 'location_x',
+        'y': 'location_y',
+        'end_x': 'end_location_x',
+        'end_y': 'end_location_y'
+    }, axis=1, inplace=True)
+    sub_df = pass_df[['location_x', 'location_y', 'end_location_x', 'end_location_y', 'pass_angle', 'pass_length']]
+    scaled_df = scaler.transform(sub_df)
+    cluster = kmeans.predict(scaled_df)
+    
+    pass_df['cluster'] = cluster
+    df_cls = pass_df[(pass_df.cluster == sel_cluster)]# & (df.team == team)]
+
+    pitch = Pitch(line_color='black', pad_top=2)
+    fig, ax = pitch.grid( grid_height=0.85, title_height=0.02, axis=False,
+                         endnote_height=0.01, title_space=0.01, endnote_space=0.01)
+    
+    pitch.scatter(df_cls.location_x, df_cls.location_y, alpha = 0.2, s = 50, color = "red", ax=ax['pitch'])
+    pitch.arrows(df_cls.location_x, df_cls.location_y, df_cls.end_location_x, df_cls.end_location_y, color = "red", ax=ax['pitch'], width=1, label=sel_cluster)
+
+    df_cls.timestamp = pd.to_datetime(df_cls.timestamp)
+    df_cls['max_timestamp'] = df_cls.timestamp + pd.Timedelta(8, unit='s')
+    df_cls['xg_gen'] = calc_xg(df_cls, df)
+
+    total_xg = df_cls.xg_gen.sum()
+    total_passes = len(df_cls)
+    cluster_name = cluster_name.replace(' ', '\n')
+
+    sdf = pd.DataFrame([('Total Passes', total_passes), ('Total xG', total_xg)], columns = ['Stat', 'Value'])
+    return fig, sdf
+
 def title_html(string):
     fs = "font-size: 20px;"
     title = f"""
@@ -387,6 +428,8 @@ def main():
     #dataframe
     df = pd.read_csv("data/tracking_vel_compact.csv")
     df_ev = pd.read_csv("data/bayer_werder.csv")
+
+    df_ev.team = df_ev.team.str.replace("Bayer Leverkusen", "Home").str.replace("Werder Bremen", "Away")
     with st.sidebar:
         selected_page = option_menu(
             "Match Analysis",
@@ -398,11 +441,12 @@ def main():
     # Tabs
     if selected_page == "Team Analysis":
         st.write(title_html("Team Analysis"), unsafe_allow_html=True)
-        tabs = st.tabs(['Match Summary', 'Position at a Moment', 'Pitch Control'])
+        tabs = st.tabs(['Match Summary', 'Passing', 'Position at a Moment', 'Pitch Control'])
 
         with tabs[0]:
             #st.header('Team Average Position')
             summ_table = build_table(df_ev)
+            summ_table = summ_table[['Home', 'Away']]
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader('Summary Stats')
@@ -427,9 +471,26 @@ def main():
             
                 st.pyplot(fig)            
 
-            
-
         with tabs[1]:
+            team = st.selectbox('I want to see Team', ['Home', 'Away'], key='team_pass')
+            clusters = pd.read_csv('desc_clusters.csv')
+            desc = clusters.desc.values.tolist()
+            cls = st.selectbox('Passes in style: ', desc, key='cluster_pass')
+
+            cls_number = clusters[clusters.desc == cls].cluster.values[0]
+
+            fig_cls, sdf = find_clusters(df_ev, team=team, sel_cluster=cls_number, cluster_name = cls)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader('Stats')
+                st.dataframe(sdf, hide_index=True)
+            with col2:
+                st.subheader('View')
+                st.pyplot(fig_cls)
+
+
+        with tabs[2]:
             #st.header('Position at a Moment')
             
             team = st.selectbox('Select Team', ['Home', 'Away'], key='team_frame')
@@ -454,7 +515,7 @@ def main():
             fig = make_voronoi(df,min=minute, sec=second,  team_view=team)
             st.pyplot(fig)
 
-        with tabs[2]:
+        with tabs[3]:
             #st.header('Pitch Control')    
             team = st.selectbox('Select Team', ['Home', 'Away'], key='team_pcm')
             
